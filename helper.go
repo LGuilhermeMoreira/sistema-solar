@@ -422,8 +422,9 @@ func drawPlanet(p Planet, position rl.Vector3, angle float32) {
 	if p.Texture.ID > 0 {
 		// Build transform: scale by radius, rotate around Y axis so texture spins
 		transform := rl.MatrixScale(p.Radius, p.Radius, p.Radius)
+		
 		rotation := rl.MatrixRotateY(angle)
-		transform = rl.MatrixMultiply(rotation, transform)
+		transform = rl.MatrixMultiply(transform, rotation)
 		translation := rl.MatrixTranslate(position.X, position.Y, position.Z)
 		transform = rl.MatrixMultiply(transform, translation)
 		rl.DrawMesh(p.Mesh, p.Material, transform)
@@ -439,7 +440,7 @@ func drawSun(mesh rl.Mesh, material rl.Material, hasTexture bool, angle float32)
 	if hasTexture {
 		transform := rl.MatrixScale(sunRadius, sunRadius, sunRadius)
 		rotation := rl.MatrixRotateY(angle)
-		transform = rl.MatrixMultiply(rotation, transform)
+		transform = rl.MatrixMultiply(transform, rotation)
 		rl.DrawMesh(mesh, material, transform)
 	} else {
 		rl.DrawSphere(rl.Vector3{X: 0, Y: 0, Z: 0}, sunRadius, rl.Color{R: 255, G: 220, B: 80, A: 255})
