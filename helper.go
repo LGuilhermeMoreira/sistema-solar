@@ -303,8 +303,12 @@ func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Tex
 			p1Outer := rl.Vector3{X: center.X + outerRadius*cos1, Y: center.Y, Z: center.Z + outerRadius*sin1}
 
 			ringColor := rl.Color{R: 210, G: 190, B: 150, A: 160}
+			// Draw top face
 			rl.DrawTriangle3D(p0Inner, p0Outer, p1Outer, ringColor)
 			rl.DrawTriangle3D(p0Inner, p1Outer, p1Inner, ringColor)
+			// Draw bottom face
+			rl.DrawTriangle3D(p0Inner, p1Outer, p0Outer, ringColor)
+			rl.DrawTriangle3D(p0Inner, p1Inner, p1Outer, ringColor)
 		}
 	} else {
 		// Fallback: plain colored rings
