@@ -71,6 +71,7 @@ func main() {
 		},
 	}
 
+	// carrega as texturas
 	for i := range planets {
 		loadPlanetAssets(&planets[i])
 		planets[i].Angle = float32(i) * 0.8
@@ -79,6 +80,7 @@ func main() {
 		}
 	}
 
+	// configura o sol
 	sunMesh := rl.GenMeshSphere(1.0, 32, 32)
 	sunMaterial := rl.LoadMaterialDefault()
 	sunTexture := rl.LoadTexture("assets/sun.png")
@@ -90,6 +92,7 @@ func main() {
 
 	ringTexture := rl.LoadTexture("assets/saturn_ring.png")
 
+	// configurando estrelas
 	stars := make([]Star, 520)
 	for i := range stars {
 		x := float32(rl.GetRandomValue(0, screenW))
@@ -102,6 +105,7 @@ func main() {
 		}
 	}
 
+	// configurando camera
 	orbitCam := OrbitCamera{
 		Target:   rl.Vector3{X: 0, Y: 0, Z: 0},
 		Yaw:      2.35,
@@ -115,10 +119,12 @@ func main() {
 	showGrid := true
 	focusedPlanet := -1
 
+	// programa rodando
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		clickReleased := false
 
+		// zoom
 		wheel := rl.GetMouseWheelMove()
 		if wheel != 0 {
 			orbitCam.Distance *= 1 - wheel*0.12
@@ -189,6 +195,7 @@ func main() {
 		}
 		if rl.IsKeyPressed(rl.KeyR) {
 			focusedPlanet = -1
+			speed = 1.0
 			orbitCam = OrbitCamera{
 				Target:   rl.Vector3{X: 0, Y: 0, Z: 0},
 				Yaw:      2.35,
@@ -225,6 +232,8 @@ func main() {
 			orbitCam.Target = planetPositions[focusedPlanet]
 		}
 
+		// termina de configurar o sistema e começa de fato.
+
 		camera := camera3D(orbitCam)
 		if clickReleased {
 			selected := pickPlanet(camera, planetPositions, planets)
@@ -235,6 +244,7 @@ func main() {
 			}
 		}
 
+		// começa a desenhar as coisas na tela
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.Color{R: 4, G: 5, B: 12, A: 255})
 		drawStarBackground(stars, orbitCam)
