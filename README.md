@@ -71,6 +71,7 @@ make clean
 - `L`: mostrar ou ocultar labels
 - `O`: mostrar ou ocultar orbitas
 - `G`: mostrar ou ocultar grade
+- `C`: lancar um cometa contra a Terra
 - `R`: resetar camera e velocidade
 
 ## Estrutura

@@ -44,6 +44,15 @@ type Star struct {
 	Parallax float32
 }
 
+type Comet struct {
+	Active   bool
+	Position rl.Vector3
+	Velocity rl.Vector3
+	Radius   float32
+	Age      float32
+	MaxAge   float32
+}
+
 var (
 	screenW int32 = 1280
 	screenH int32 = 720

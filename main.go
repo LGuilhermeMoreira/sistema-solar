@@ -79,6 +79,17 @@ func main() {
 			planets[i].Moons[j].Angle = float32(j) * 1.2
 		}
 	}
+	earthIndex := -1
+	for i, p := range planets {
+		if p.Name == "Terra" {
+			earthIndex = i
+			break
+		}
+	}
+	earthTexture := rl.Texture2D{}
+	if earthIndex >= 0 {
+		earthTexture = planets[earthIndex].Texture
+	}
 
 	// configura o sol
 	sunMesh := rl.GenMeshSphere(1.0, 32, 32)
@@ -89,6 +100,7 @@ func main() {
 		sunMaterial.GetMap(rl.MapDiffuse).Texture = sunTexture
 	}
 	sunAngle := float32(0)
+	comet := Comet{}
 
 	ringTexture := rl.LoadTexture("assets/saturn_ring.png")
 
@@ -196,6 +208,11 @@ func main() {
 		if rl.IsKeyPressed(rl.KeyR) {
 			focusedPlanet = -1
 			speed = 1.0
+			comet = Comet{}
+			if earthIndex >= 0 && earthTexture.ID > 0 {
+				planets[earthIndex].Texture = earthTexture
+				planets[earthIndex].Material.GetMap(rl.MapDiffuse).Texture = earthTexture
+			}
 			orbitCam = OrbitCamera{
 				Target:   rl.Vector3{X: 0, Y: 0, Z: 0},
 				Yaw:      2.35,
@@ -226,6 +243,21 @@ func main() {
 		planetPositions := make([]rl.Vector3, len(planets))
 		for i, p := range planets {
 			planetPositions[i] = planetPosition(p.SemiMajorAxis, p.Eccentricity, p.Angle)
+		}
+
+		if earthIndex >= 0 {
+			earthPosition := planetPositions[earthIndex]
+			if rl.IsKeyPressed(rl.KeyC) {
+				launchSpeed := speed
+				if paused {
+					launchSpeed = 0
+				}
+				comet = launchComet(planets[earthIndex], launchSpeed)
+			}
+			if updateComet(&comet, earthPosition, planets[earthIndex].Radius, dt) && hasSunTexture {
+				planets[earthIndex].Texture = sunTexture
+				planets[earthIndex].Material.GetMap(rl.MapDiffuse).Texture = sunTexture
+			}
 		}
 
 		if focusedPlanet >= 0 && focusedPlanet < len(planetPositions) {
@@ -280,6 +312,9 @@ func main() {
 				rl.DrawSphere(moonPos, m.Radius, m.Color)
 			}
 		}
+		if earthIndex >= 0 {
+			drawComet(comet)
+		}
 
 		rl.EndMode3D()
 
@@ -292,8 +327,8 @@ func main() {
 			}
 		}
 
-		rl.DrawRectangle(10, 10, 330, 178, rl.Color{R: 0, G: 0, B: 0, A: 150})
-		rl.DrawRectangleLines(10, 10, 330, 178, rl.Color{R: 90, G: 90, B: 100, A: 190})
+		rl.DrawRectangle(10, 10, 330, 192, rl.Color{R: 0, G: 0, B: 0, A: 150})
+		rl.DrawRectangleLines(10, 10, 330, 192, rl.Color{R: 90, G: 90, B: 100, A: 190})
 
 		statusStr := "Rodando"
 		if paused {
@@ -313,6 +348,7 @@ func main() {
 		rl.DrawText("WASD/QE Mover alvo da camera", 20, 132, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
 		rl.DrawText("Setas   Velocidade   Z Reset velocidade", 20, 146, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
 		rl.DrawText("L Labels   O Orbitas   G Grade   R Reset", 20, 160, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
+		rl.DrawText("C Lancar cometa contra a Terra", 20, 174, 11, rl.Color{R: 255, G: 190, B: 120, A: 240})
 
 		rl.DrawFPS(screenW-80, 10)
 		rl.EndDrawing()

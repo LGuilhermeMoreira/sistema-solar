@@ -23,6 +23,30 @@ func moonPosition(planet rl.Vector3, distance, angle float32) rl.Vector3 {
 	}
 }
 
+func vector3Add(a, b rl.Vector3) rl.Vector3 {
+	return rl.Vector3{X: a.X + b.X, Y: a.Y + b.Y, Z: a.Z + b.Z}
+}
+
+func vector3Subtract(a, b rl.Vector3) rl.Vector3 {
+	return rl.Vector3{X: a.X - b.X, Y: a.Y - b.Y, Z: a.Z - b.Z}
+}
+
+func vector3Scale(v rl.Vector3, scale float32) rl.Vector3 {
+	return rl.Vector3{X: v.X * scale, Y: v.Y * scale, Z: v.Z * scale}
+}
+
+func vector3Length(v rl.Vector3) float32 {
+	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z)))
+}
+
+func vector3Normalize(v rl.Vector3) rl.Vector3 {
+	length := vector3Length(v)
+	if length == 0 {
+		return rl.Vector3{}
+	}
+	return vector3Scale(v, 1/length)
+}
+
 func camera3D(c OrbitCamera) rl.Camera3D {
 	pitch := clamp(c.Pitch, -1.25, 1.25)
 	cp := float32(math.Cos(float64(pitch)))
@@ -254,4 +278,54 @@ func drawSun(mesh rl.Mesh, material rl.Material, hasTexture bool, angle float32)
 		rl.DrawSphere(rl.Vector3{X: 0, Y: 0, Z: 0}, sunRadius, rl.Color{R: 255, G: 220, B: 80, A: 255})
 		rl.DrawSphereWires(rl.Vector3{X: 0, Y: 0, Z: 0}, 26, 16, 24, rl.Color{R: 255, G: 190, B: 40, A: 100})
 	}
+}
+
+func launchComet(earth Planet, simulationSpeed float32) Comet {
+	const timeToImpact = float32(3.2)
+
+	futureAngle := earth.Angle + earth.Speed*simulationSpeed*timeToImpact
+	impactPoint := planetPosition(earth.SemiMajorAxis, earth.Eccentricity, futureAngle)
+	start := vector3Add(impactPoint, rl.Vector3{X: -260, Y: 95, Z: -210})
+	velocity := vector3Scale(vector3Subtract(impactPoint, start), 1/timeToImpact)
+
+	return Comet{
+		Active:   true,
+		Position: start,
+		Velocity: velocity,
+		Radius:   0.9,
+		MaxAge:   timeToImpact + 2,
+	}
+}
+
+func updateComet(comet *Comet, target rl.Vector3, targetRadius float32, dt float32) bool {
+	if !comet.Active {
+		return false
+	}
+
+	comet.Position = vector3Add(comet.Position, vector3Scale(comet.Velocity, dt))
+	comet.Age += dt
+	if vector3Length(vector3Subtract(target, comet.Position)) <= targetRadius+comet.Radius {
+		comet.Active = false
+		return true
+	}
+	if comet.Age >= comet.MaxAge {
+		comet.Active = false
+	}
+	return false
+}
+
+func drawComet(comet Comet) {
+	if !comet.Active {
+		return
+	}
+
+	direction := vector3Normalize(comet.Velocity)
+	tailEnd := vector3Subtract(comet.Position, vector3Scale(direction, 48))
+	tailWideA := vector3Add(tailEnd, rl.Vector3{X: 0, Y: 9, Z: 0})
+	tailWideB := vector3Add(tailEnd, rl.Vector3{X: 0, Y: -6, Z: 0})
+
+	rl.DrawSphere(comet.Position, comet.Radius, rl.Color{R: 238, G: 238, B: 225, A: 255})
+	rl.DrawLine3D(comet.Position, tailEnd, rl.Color{R: 255, G: 175, B: 70, A: 210})
+	rl.DrawLine3D(comet.Position, tailWideA, rl.Color{R: 255, G: 220, B: 135, A: 135})
+	rl.DrawLine3D(comet.Position, tailWideB, rl.Color{R: 110, G: 185, B: 255, A: 120})
 }
