@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -239,15 +240,61 @@ func pickPlanet(camera rl.Camera3D, planetPositions []rl.Vector3, planets []Plan
 	return selected
 }
 
+// func loadPlanetAssets(p *Planet) {
+// 	p.Mesh = rl.GenMeshSphere(1.0, 64, 64)
+// 	p.Material = rl.LoadMaterialDefault()
+
+// 	if p.TexturePath != "" {
+// 		tex := rl.LoadTexture(p.TexturePath)
+// 		if tex.ID > 0 {
+// 			rl.GenTextureMipmaps(&tex)
+// 			rl.SetTextureFilter(tex, rl.FilterAnisotropic16x)
+// 			p.Texture = tex
+// 			p.Material.GetMap(rl.MapDiffuse).Texture = tex
+// 		}
+// 	}
+// }
+
 func loadPlanetAssets(p *Planet) {
-	p.Mesh = rl.GenMeshSphere(1.0, 32, 32)
+	p.Mesh = rl.GenMeshSphere(1.0, 64, 64)
 	p.Material = rl.LoadMaterialDefault()
 
 	if p.TexturePath != "" {
 		tex := rl.LoadTexture(p.TexturePath)
 		if tex.ID > 0 {
+			rl.GenTextureMipmaps(&tex)
+			rl.SetTextureFilter(tex, rl.FilterAnisotropic16x)
 			p.Texture = tex
 			p.Material.GetMap(rl.MapDiffuse).Texture = tex
+		}
+	}
+
+	// Carrega textura de noite se especificada
+	if p.NightTexturePath != "" {
+		nightTex := rl.LoadTexture(p.NightTexturePath)
+		if nightTex.ID > 0 {
+			rl.GenTextureMipmaps(&nightTex)
+			rl.SetTextureFilter(nightTex, rl.FilterAnisotropic16x)
+			p.NightTexture = nightTex
+		}
+	}
+
+	// Se é Terra com textura de noite, carrega shader day/night
+	if p.Name == "Terra" && p.NightTexture.ID > 0 {
+		fmt.Printf("[Terra] Carregando shader day/night...\n")
+		shader := rl.LoadShader("assets/shaders/earth_day_night.vs", "assets/shaders/earth_day_night.fs")
+		fmt.Printf("[Terra] Shader ID: %d\n", shader.ID)
+		if shader.ID > 0 {
+			// Seta o shader no material
+			p.Material.Shader = shader
+
+			// Obtém as localizações dos uniforms
+			p.NightTexLoc = rl.GetShaderLocation(shader, "nightTexture")
+			p.LightDirLoc = rl.GetShaderLocation(shader, "lightDir")
+
+			fmt.Printf("[Terra] NightTexLoc: %d, LightDirLoc: %d\n", p.NightTexLoc, p.LightDirLoc)
+		} else {
+			fmt.Printf("[Terra] Falha ao carregar shader!\n")
 		}
 	}
 }
@@ -256,11 +303,42 @@ func drawPlanet(p Planet, position rl.Vector3, angle float32) {
 	if p.Texture.ID > 0 {
 		transform := rl.MatrixScale(p.Radius, p.Radius, p.Radius)
 
+		fixRotation := rl.MatrixRotateX(math.Pi / 2)
+		transform = rl.MatrixMultiply(transform, fixRotation)
+
 		rotation := rl.MatrixRotateY(angle)
 		transform = rl.MatrixMultiply(transform, rotation)
 		translation := rl.MatrixTranslate(position.X, position.Y, position.Z)
 		transform = rl.MatrixMultiply(transform, translation)
-		rl.DrawMesh(p.Mesh, p.Material, transform)
+
+		// Se é Terra com shader day/night
+		if p.Name == "Terra" && p.NightTexture.ID > 0 && p.Material.Shader.ID > 0 {
+			// Calcula direção da luz (do planeta para o sol no centro)
+			sunDir := rl.Vector3{X: -position.X, Y: -position.Y, Z: -position.Z}
+			sunDir = vector3Normalize(sunDir)
+
+			// Ativa o shader
+			rl.BeginShaderMode(p.Material.Shader)
+
+			// Passa o vetor de direção da luz
+			if p.LightDirLoc >= 0 {
+				lightDirSlice := []float32{sunDir.X, sunDir.Y, sunDir.Z}
+				rl.SetShaderValue(p.Material.Shader, p.LightDirLoc, lightDirSlice, rl.ShaderUniformVec3)
+			}
+
+			// Passa a textura de noite
+			if p.NightTexLoc >= 0 {
+				rl.SetShaderValueTexture(p.Material.Shader, p.NightTexLoc, p.NightTexture)
+			}
+
+			// Desenha o mesh
+			rl.DrawMesh(p.Mesh, p.Material, transform)
+
+			rl.EndShaderMode()
+		} else {
+			// Desenha normalmente sem shader customizado
+			rl.DrawMesh(p.Mesh, p.Material, transform)
+		}
 	} else {
 		rl.DrawSphere(position, p.Radius, p.Color)
 		rl.DrawSphereWires(position, p.Radius*1.02, 10, 18, rl.Color{R: 255, G: 255, B: 255, A: 35})
@@ -271,6 +349,10 @@ func drawSun(mesh rl.Mesh, material rl.Material, hasTexture bool, angle float32)
 	const sunRadius = float32(22)
 	if hasTexture {
 		transform := rl.MatrixScale(sunRadius, sunRadius, sunRadius)
+
+		fixRotation := rl.MatrixRotateX(math.Pi / 2)
+		transform = rl.MatrixMultiply(transform, fixRotation)
+
 		rotation := rl.MatrixRotateY(angle)
 		transform = rl.MatrixMultiply(transform, rotation)
 		rl.DrawMesh(mesh, material, transform)

@@ -12,9 +12,13 @@ type Planet struct {
 	Angle         float32
 	Moons         []Moon
 	TexturePath   string
+	NightTexturePath string
 	Texture       rl.Texture2D
+	NightTexture  rl.Texture2D
 	Mesh          rl.Mesh
 	Material      rl.Material
+	LightDirLoc   int32
+	NightTexLoc    int32
 }
 
 type Moon struct {

@@ -24,8 +24,9 @@ func main() {
 		},
 		{
 			Name: "Terra", Radius: 6.5, SemiMajorAxis: 145, Eccentricity: 0.0167, Speed: 1.0,
-			Color:       rl.Color{R: 80, G: 140, B: 220, A: 255},
-			TexturePath: "assets/earth.png",
+			Color:            rl.Color{R: 80, G: 140, B: 220, A: 255},
+			TexturePath:      "assets/earth.png",
+			NightTexturePath: "assets/earth_night.png",
 			Moons: []Moon{
 				{Radius: 2, OrbitalDist: 18, Speed: 13.4, Color: rl.Color{R: 210, G: 210, B: 210, A: 255}},
 			},
@@ -92,11 +93,13 @@ func main() {
 	}
 
 	// configura o sol
-	sunMesh := rl.GenMeshSphere(1.0, 32, 32)
+	sunMesh := rl.GenMeshSphere(1.0, 64, 64)
 	sunMaterial := rl.LoadMaterialDefault()
 	sunTexture := rl.LoadTexture("assets/sun.png")
 	hasSunTexture := sunTexture.ID > 0
 	if hasSunTexture {
+		rl.GenTextureMipmaps(&sunTexture)
+		rl.SetTextureFilter(sunTexture, rl.FilterAnisotropic16x)
 		sunMaterial.GetMap(rl.MapDiffuse).Texture = sunTexture
 	}
 	sunAngle := float32(0)
@@ -130,6 +133,7 @@ func main() {
 	showOrbits := true
 	showGrid := true
 	focusedPlanet := -1
+	cometCamActive := false
 
 	// programa rodando
 	for !rl.WindowShouldClose() {
@@ -209,6 +213,7 @@ func main() {
 			focusedPlanet = -1
 			speed = 1.0
 			comet = Comet{}
+			cometCamActive = false
 			if earthIndex >= 0 && earthTexture.ID > 0 {
 				planets[earthIndex].Texture = earthTexture
 				planets[earthIndex].Material.GetMap(rl.MapDiffuse).Texture = earthTexture
@@ -228,6 +233,11 @@ func main() {
 		}
 		if rl.IsKeyPressed(rl.KeyZ) {
 			speed = 1.0
+		}
+		if rl.IsKeyPressed(rl.KeyV) {
+			if comet.Active {
+				cometCamActive = !cometCamActive
+			}
 		}
 
 		if !paused {
@@ -273,7 +283,17 @@ func main() {
 				focusedPlanet = selected
 				orbitCam.Target = planetPositions[selected]
 				camera = camera3D(orbitCam)
+				cometCamActive = false
 			}
+		}
+
+		if comet.Active && cometCamActive {
+			dir := vector3Normalize(comet.Velocity)
+			offset := vector3Add(vector3Scale(dir, -15), rl.Vector3{X: 0, Y: 4, Z: 0})
+			camera.Position = vector3Add(comet.Position, offset)
+			camera.Target = vector3Add(comet.Position, vector3Scale(dir, 20))
+		} else if cometCamActive && !comet.Active {
+			cometCamActive = false
 		}
 
 		// começa a desenhar as coisas na tela
@@ -348,7 +368,7 @@ func main() {
 		rl.DrawText("WASD/QE Mover alvo da camera", 20, 132, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
 		rl.DrawText("Setas   Velocidade   Z Reset velocidade", 20, 146, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
 		rl.DrawText("L Labels   O Orbitas   G Grade   R Reset", 20, 160, 11, rl.Color{R: 165, G: 205, B: 255, A: 230})
-		rl.DrawText("C Lancar cometa contra a Terra", 20, 174, 11, rl.Color{R: 255, G: 190, B: 120, A: 240})
+		rl.DrawText("C Lancar cometa   V Visao do cometa", 20, 174, 11, rl.Color{R: 255, G: 190, B: 120, A: 240})
 
 		rl.DrawFPS(screenW-80, 10)
 		rl.EndDrawing()
