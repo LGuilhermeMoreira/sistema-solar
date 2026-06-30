@@ -103,6 +103,8 @@ func main() {
 	comet := Comet{}
 	loadCometAssets(&comet, "assets/comet.png")
 
+	impactTexture := rl.LoadTexture("assets/terra.png")
+
 	ringTexture := rl.LoadTexture("assets/saturn_ring.png")
 
 	// configurando estrelas
@@ -251,7 +253,6 @@ func main() {
 			}
 			if earthIndex >= 0 && earthTexture.ID > 0 {
 				planets[earthIndex].Texture = earthTexture
-				planets[earthIndex].Material.GetMap(rl.MapDiffuse).Texture = earthTexture
 			}
 			orbitCam = OrbitCamera{
 				Target:   rl.Vector3{X: 0, Y: 0, Z: 0},
@@ -294,9 +295,8 @@ func main() {
 				}
 				comet = launchComet(planets[earthIndex], launchSpeed, comet)
 			}
-			if updateComet(&comet, earthPosition, planets[earthIndex].Radius, dt) && hasSunTexture {
-				planets[earthIndex].Texture = sunTexture
-				planets[earthIndex].Material.GetMap(rl.MapDiffuse).Texture = sunTexture
+			if updateComet(&comet, earthPosition, planets[earthIndex].Radius, dt) && impactTexture.ID > 0 {
+				planets[earthIndex].Texture = impactTexture
 			}
 		}
 
@@ -309,10 +309,13 @@ func main() {
 			if comet.Active {
 				direction := rl.Vector3Normalize(comet.Velocity)
 				orbitCam.Target = comet.Position
+				// Yaw baseado apenas no plano XZ para ficar exatamente atrás do cometa
 				orbitCam.Yaw = float32(math.Atan2(float64(direction.X), float64(direction.Z))) + math.Pi
+				// Pitch fixo em zero: câmera fica literalmente atrás, sem deslocamento vertical
 				orbitCam.Pitch = 0.0
 				orbitCam.Distance = 40.0
 			} else {
+				// Cometa parou (impacto ou saiu): volta para câmera livre apontando para o centro
 				cameraMode = cameraModeFree
 				orbitCam.Target = rl.Vector3{X: 0, Y: 0, Z: 0}
 				orbitCam.Distance = 900
@@ -426,11 +429,11 @@ func main() {
 			if cameraMode == cameraModeFollowComet {
 				text = "Voltar para camera livre"
 			}
-			textWidth := float32(rl.MeasureText(text, 12))
+			textWidth := float32(rl.MeasureText(text, 12)) // Cast result of MeasureText to float32
 			rl.DrawText(
 				text,
-				int32(cometButton.X+cometButton.Width/2-textWidth/2),
-				int32(cometButton.Y+cometButton.Height/2-6),
+				int32(cometButton.X+cometButton.Width/2-textWidth/2), // Cast calculations to int32
+				int32(cometButton.Y+cometButton.Height/2-6),          // Cast calculations to int32
 				12,
 				textColor,
 			)
