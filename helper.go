@@ -287,7 +287,7 @@ func loadCometAssets(comet *Comet, texturePath string) {
 		tex := rl.LoadTexture(texturePath)
 		if tex.ID > 0 {
 			comet.Texture = tex
-			comet.Material.GetMap(rl.MapDiffuse).Texture = tex
+			rl.SetMaterialTexture(&comet.Material, rl.MapDiffuse, tex)
 		}
 	}
 }
@@ -330,7 +330,7 @@ func updateComet(comet *Comet, target rl.Vector3, targetRadius float32, dt float
 	return false
 }
 
-func drawComet(comet Comet) {
+func drawComet(comet *Comet) {
 	if !comet.Active {
 		return
 	}
@@ -342,6 +342,9 @@ func drawComet(comet Comet) {
 
 	// Desenha nucleo com textura se disponivel
 	if comet.Texture.ID > 0 {
+		// Re-seta a textura no material a cada frame para garantir que a cópia por valor
+		// do launchComet não quebre o ponteiro interno do material
+		rl.SetMaterialTexture(&comet.Material, rl.MapDiffuse, comet.Texture)
 		transform := rl.MatrixScale(comet.Radius, comet.Radius, comet.Radius)
 		translation := rl.MatrixTranslate(comet.Position.X, comet.Position.Y, comet.Position.Z)
 		transform = rl.MatrixMultiply(transform, translation)
