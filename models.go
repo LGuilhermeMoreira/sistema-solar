@@ -51,6 +51,9 @@ type Comet struct {
 	Radius   float32
 	Age      float32
 	MaxAge   float32
+	Texture  rl.Texture2D
+	Mesh     rl.Mesh
+	Material rl.Material
 }
 
 var (
