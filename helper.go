@@ -280,7 +280,19 @@ func drawSun(mesh rl.Mesh, material rl.Material, hasTexture bool, angle float32)
 	}
 }
 
-func launchComet(earth Planet, simulationSpeed float32) Comet {
+func loadCometAssets(comet *Comet, texturePath string) {
+	comet.Mesh = rl.GenMeshSphere(1.0, 32, 32)
+	comet.Material = rl.LoadMaterialDefault()
+	if texturePath != "" {
+		tex := rl.LoadTexture(texturePath)
+		if tex.ID > 0 {
+			comet.Texture = tex
+			comet.Material.GetMap(rl.MapDiffuse).Texture = tex
+		}
+	}
+}
+
+func launchComet(earth Planet, simulationSpeed float32, existing Comet) Comet {
 	const timeToImpact = float32(3.2)
 
 	futureAngle := earth.Angle + earth.Speed*simulationSpeed*timeToImpact
@@ -294,6 +306,10 @@ func launchComet(earth Planet, simulationSpeed float32) Comet {
 		Velocity: velocity,
 		Radius:   0.9,
 		MaxAge:   timeToImpact + 2,
+		// Preserva textura/mesh/material carregados anteriormente
+		Texture:  existing.Texture,
+		Mesh:     existing.Mesh,
+		Material: existing.Material,
 	}
 }
 
@@ -324,7 +340,16 @@ func drawComet(comet Comet) {
 	tailWideA := vector3Add(tailEnd, rl.Vector3{X: 0, Y: 9, Z: 0})
 	tailWideB := vector3Add(tailEnd, rl.Vector3{X: 0, Y: -6, Z: 0})
 
-	rl.DrawSphere(comet.Position, comet.Radius, rl.Color{R: 238, G: 238, B: 225, A: 255})
+	// Desenha nucleo com textura se disponivel
+	if comet.Texture.ID > 0 {
+		transform := rl.MatrixScale(comet.Radius, comet.Radius, comet.Radius)
+		translation := rl.MatrixTranslate(comet.Position.X, comet.Position.Y, comet.Position.Z)
+		transform = rl.MatrixMultiply(transform, translation)
+		rl.DrawMesh(comet.Mesh, comet.Material, transform)
+	} else {
+		rl.DrawSphere(comet.Position, comet.Radius, rl.Color{R: 238, G: 238, B: 225, A: 255})
+	}
+
 	rl.DrawLine3D(comet.Position, tailEnd, rl.Color{R: 255, G: 175, B: 70, A: 210})
 	rl.DrawLine3D(comet.Position, tailWideA, rl.Color{R: 255, G: 220, B: 135, A: 135})
 	rl.DrawLine3D(comet.Position, tailWideB, rl.Color{R: 110, G: 185, B: 255, A: 120})
