@@ -254,13 +254,16 @@ func loadPlanetAssets(p *Planet) {
 
 func drawPlanet(p Planet, position rl.Vector3, angle float32) {
 	if p.Texture.ID > 0 {
+		// Cria material temporário pinned na heap para evitar panic do cgo com ponteiro na stack
+		mat := new(rl.Material)
+		*mat = p.Material
+		rl.SetMaterialTexture(mat, rl.MapDiffuse, p.Texture)
 		transform := rl.MatrixScale(p.Radius, p.Radius, p.Radius)
-
 		rotation := rl.MatrixRotateY(angle)
 		transform = rl.MatrixMultiply(transform, rotation)
 		translation := rl.MatrixTranslate(position.X, position.Y, position.Z)
 		transform = rl.MatrixMultiply(transform, translation)
-		rl.DrawMesh(p.Mesh, p.Material, transform)
+		rl.DrawMesh(p.Mesh, *mat, transform)
 	} else {
 		rl.DrawSphere(position, p.Radius, p.Color)
 		rl.DrawSphereWires(position, p.Radius*1.02, 10, 18, rl.Color{R: 255, G: 255, B: 255, A: 35})
@@ -342,13 +345,13 @@ func drawComet(comet *Comet) {
 
 	// Desenha nucleo com textura se disponivel
 	if comet.Texture.ID > 0 {
-		// Re-seta a textura no material a cada frame para garantir que a cópia por valor
-		// do launchComet não quebre o ponteiro interno do material
-		rl.SetMaterialTexture(&comet.Material, rl.MapDiffuse, comet.Texture)
+		mat := new(rl.Material)
+		*mat = comet.Material
+		rl.SetMaterialTexture(mat, rl.MapDiffuse, comet.Texture)
 		transform := rl.MatrixScale(comet.Radius, comet.Radius, comet.Radius)
 		translation := rl.MatrixTranslate(comet.Position.X, comet.Position.Y, comet.Position.Z)
 		transform = rl.MatrixMultiply(transform, translation)
-		rl.DrawMesh(comet.Mesh, comet.Material, transform)
+		rl.DrawMesh(comet.Mesh, *mat, transform)
 	} else {
 		rl.DrawSphere(comet.Position, comet.Radius, rl.Color{R: 238, G: 238, B: 225, A: 255})
 	}
