@@ -239,9 +239,10 @@ func pickPlanet(camera rl.Camera3D, planetPositions []rl.Vector3, planets []Plan
 	return selected
 }
 
-func loadPlanetAssets(p *Planet) {
+func loadPlanetAssets(p *Planet, shader rl.Shader) {
 	p.Mesh = rl.GenMeshSphere(1.0, 32, 32)
 	p.Material = rl.LoadMaterialDefault()
+	p.Material.Shader = shader
 
 	if p.TexturePath != "" {
 		tex := rl.LoadTexture(p.TexturePath)
@@ -254,7 +255,6 @@ func loadPlanetAssets(p *Planet) {
 
 func drawPlanet(p Planet, position rl.Vector3, angle float32) {
 	if p.Texture.ID > 0 {
-		// Cria material temporário pinned na heap para evitar panic do cgo com ponteiro na stack
 		mat := new(rl.Material)
 		*mat = p.Material
 		rl.SetMaterialTexture(mat, rl.MapDiffuse, p.Texture)
@@ -283,9 +283,10 @@ func drawSun(mesh rl.Mesh, material rl.Material, hasTexture bool, angle float32)
 	}
 }
 
-func loadCometAssets(comet *Comet, texturePath string) {
+func loadCometAssets(comet *Comet, texturePath string, shader rl.Shader) {
 	comet.Mesh = rl.GenMeshSphere(1.0, 32, 32)
 	comet.Material = rl.LoadMaterialDefault()
+	comet.Material.Shader = shader
 	if texturePath != "" {
 		tex := rl.LoadTexture(texturePath)
 		if tex.ID > 0 {
@@ -309,7 +310,6 @@ func launchComet(earth Planet, simulationSpeed float32, existing Comet) Comet {
 		Velocity: velocity,
 		Radius:   0.9,
 		MaxAge:   timeToImpact + 2,
-		// Preserva textura/mesh/material carregados anteriormente
 		Texture:  existing.Texture,
 		Mesh:     existing.Mesh,
 		Material: existing.Material,
@@ -343,7 +343,6 @@ func drawComet(comet *Comet) {
 	tailWideA := vector3Add(tailEnd, rl.Vector3{X: 0, Y: 9, Z: 0})
 	tailWideB := vector3Add(tailEnd, rl.Vector3{X: 0, Y: -6, Z: 0})
 
-	// Desenha nucleo com textura se disponivel
 	if comet.Texture.ID > 0 {
 		mat := new(rl.Material)
 		*mat = comet.Material

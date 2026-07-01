@@ -7,9 +7,75 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+const vsCode = `
+#version 330
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec3 vertexNormal;
+in vec4 vertexColor;
+
+uniform mat4 mvp;
+uniform mat4 matModel;
+
+out vec3 fragPosition;
+out vec2 fragTexCoord;
+out vec4 fragColor;
+out vec3 fragNormal;
+
+void main() {
+    // Calcula a posição real do vértice no mundo
+    fragPosition = vec3(matModel * vec4(vertexPosition, 1.0));
+    fragTexCoord = vertexTexCoord;
+    fragColor = vertexColor;
+    
+    // Calcula as normais para a iluminação não quebrar com a rotação
+    mat3 normalMatrix = transpose(inverse(mat3(matModel)));
+    fragNormal = normalize(normalMatrix * vertexNormal);
+    
+    gl_Position = mvp * vec4(vertexPosition, 1.0);
+}
+`
+
+const fsCode = `
+#version 330
+in vec3 fragPosition;
+in vec2 fragTexCoord;
+in vec4 fragColor;
+in vec3 fragNormal;
+
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+
+out vec4 finalColor;
+
+void main() {
+    // O Sol está no centro do universo (0,0,0)
+    vec3 sunPos = vec3(0.0, 0.0, 0.0);
+    
+    // Direção da luz indo do fragmento para o Sol
+    vec3 lightDir = normalize(sunPos - fragPosition);
+    
+    // Luz ambiente (determina quão escura fica a parte de trás. 0.05 = quase breu)
+    float ambient = 0.05;
+    
+    // Luz difusa (produto escalar entre a normal da superfície e a direção da luz)
+    float diff = max(dot(fragNormal, lightDir), 0.0);
+    
+    vec4 texColor = texture(texture0, fragTexCoord);
+    
+    // Combina textura, cor base e o cálculo da luz
+    vec3 lighting = (ambient + diff) * texColor.rgb * colDiffuse.rgb;
+    
+    finalColor = vec4(lighting, texColor.a * colDiffuse.a);
+}
+`
+
 func main() {
 	rl.InitWindow(screenW, screenH, "Sistema Solar 3D")
 	rl.SetTargetFPS(60)
+
+	lightingShader := rl.LoadShaderFromMemory(vsCode, fsCode)
+	defer rl.UnloadShader(lightingShader) // Limpa da memória ao fechar
 
 	planets := []Planet{
 		{
@@ -71,9 +137,8 @@ func main() {
 		},
 	}
 
-	// carrega as texturas
 	for i := range planets {
-		loadPlanetAssets(&planets[i])
+		loadPlanetAssets(&planets[i], lightingShader)
 		planets[i].Angle = float32(i) * 0.8
 		for j := range planets[i].Moons {
 			planets[i].Moons[j].Angle = float32(j) * 1.2
@@ -91,7 +156,6 @@ func main() {
 		earthTexture = planets[earthIndex].Texture
 	}
 
-	// configura o sol
 	sunMesh := rl.GenMeshSphere(1.0, 32, 32)
 	sunMaterial := rl.LoadMaterialDefault()
 	sunTexture := rl.LoadTexture("assets/sun.png")
@@ -101,13 +165,12 @@ func main() {
 	}
 	sunAngle := float32(0)
 	comet := Comet{}
-	loadCometAssets(&comet, "assets/comet.png")
+	loadCometAssets(&comet, "assets/comet.png", lightingShader)
 
 	impactTexture := rl.LoadTexture("assets/terra.png")
 
 	ringTexture := rl.LoadTexture("assets/saturn_ring.png")
 
-	// configurando estrelas
 	stars := make([]Star, 520)
 	for i := range stars {
 		x := float32(rl.GetRandomValue(0, screenW))
@@ -120,7 +183,6 @@ func main() {
 		}
 	}
 
-	// configurando camera
 	orbitCam := OrbitCamera{
 		Target:   rl.Vector3{X: 0, Y: 0, Z: 0},
 		Yaw:      2.35,
@@ -149,7 +211,6 @@ func main() {
 		Height: 30,
 	}
 
-	// programa rodando
 	for !rl.WindowShouldClose() {
 		dt := rl.GetFrameTime()
 		clickReleased := false
@@ -165,7 +226,6 @@ func main() {
 			}
 		}
 
-		// zoom
 		wheel := rl.GetMouseWheelMove()
 		if wheel != 0 {
 			orbitCam.Distance *= 1 - wheel*0.12
@@ -309,13 +369,10 @@ func main() {
 			if comet.Active {
 				direction := rl.Vector3Normalize(comet.Velocity)
 				orbitCam.Target = comet.Position
-				// Yaw baseado apenas no plano XZ para ficar exatamente atrás do cometa
 				orbitCam.Yaw = float32(math.Atan2(float64(direction.X), float64(direction.Z))) + math.Pi
-				// Pitch fixo em zero: câmera fica literalmente atrás, sem deslocamento vertical
 				orbitCam.Pitch = 0.0
 				orbitCam.Distance = 40.0
 			} else {
-				// Cometa parou (impacto ou saiu): volta para câmera livre apontando para o centro
 				cameraMode = cameraModeFree
 				orbitCam.Target = rl.Vector3{X: 0, Y: 0, Z: 0}
 				orbitCam.Distance = 900
@@ -323,8 +380,6 @@ func main() {
 				orbitCam.Pitch = 0.55
 			}
 		}
-
-		// termina de configurar o sistema e começa de fato.
 
 		camera := camera3D(orbitCam)
 		if clickReleased {
@@ -337,7 +392,6 @@ func main() {
 			}
 		}
 
-		// começa a desenhar as coisas na tela
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.Color{R: 4, G: 5, B: 12, A: 255})
 		drawStarBackground(stars, orbitCam)
@@ -429,11 +483,11 @@ func main() {
 			if cameraMode == cameraModeFollowComet {
 				text = "Voltar para camera livre"
 			}
-			textWidth := float32(rl.MeasureText(text, 12)) // Cast result of MeasureText to float32
+			textWidth := float32(rl.MeasureText(text, 12))
 			rl.DrawText(
 				text,
-				int32(cometButton.X+cometButton.Width/2-textWidth/2), // Cast calculations to int32
-				int32(cometButton.Y+cometButton.Height/2-6),          // Cast calculations to int32
+				int32(cometButton.X+cometButton.Width/2-textWidth/2),
+				int32(cometButton.Y+cometButton.Height/2-6),
 				12,
 				textColor,
 			)
