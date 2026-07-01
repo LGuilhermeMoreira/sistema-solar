@@ -36,6 +36,40 @@ void main() {
 }
 `
 
+// const fsCode = `
+// #version 330
+// in vec3 fragPosition;
+// in vec2 fragTexCoord;
+// in vec4 fragColor;
+// in vec3 fragNormal;
+
+// uniform sampler2D texture0;
+// uniform vec4 colDiffuse;
+
+// out vec4 finalColor;
+
+// void main() {
+//     // O Sol está no centro do universo (0,0,0)
+//     vec3 sunPos = vec3(0.0, 0.0, 0.0);
+
+//     // Direção da luz indo do fragmento para o Sol
+//     vec3 lightDir = normalize(sunPos - fragPosition);
+
+//     // Luz ambiente (determina quão escura fica a parte de trás. 0.05 = quase breu)
+//     float ambient = 0.05;
+
+//     // Luz difusa (produto escalar entre a normal da superfície e a direção da luz)
+//     float diff = max(dot(fragNormal, lightDir), 0.0);
+
+//     vec4 texColor = texture(texture0, fragTexCoord);
+
+//     // Combina textura, cor base e o cálculo da luz
+//     vec3 lighting = (ambient + diff) * texColor.rgb * colDiffuse.rgb;
+
+//     finalColor = vec4(lighting, texColor.a * colDiffuse.a);
+// }
+// `
+
 const fsCode = `
 #version 330
 in vec3 fragPosition;
@@ -45,27 +79,29 @@ in vec3 fragNormal;
 
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
+uniform float isRing;
 
 out vec4 finalColor;
 
 void main() {
-    // O Sol está no centro do universo (0,0,0)
     vec3 sunPos = vec3(0.0, 0.0, 0.0);
-    
-    // Direção da luz indo do fragmento para o Sol
     vec3 lightDir = normalize(sunPos - fragPosition);
-    
-    // Luz ambiente (determina quão escura fica a parte de trás. 0.05 = quase breu)
+
     float ambient = 0.05;
-    
-    // Luz difusa (produto escalar entre a normal da superfície e a direção da luz)
-    float diff = max(dot(fragNormal, lightDir), 0.0);
-    
+    float diff;
+
+    if (isRing > 0.5) {
+        // Anel: fino e visto dos dois lados, então usa luz "dois lados"
+        // e um piso maior pra não ficar preto quando a luz bate de raspão.
+        ambient = 0.25;
+        diff = abs(dot(fragNormal, lightDir));
+    } else {
+        diff = max(dot(fragNormal, lightDir), 0.0);
+    }
+
     vec4 texColor = texture(texture0, fragTexCoord);
-    
-    // Combina textura, cor base e o cálculo da luz
     vec3 lighting = (ambient + diff) * texColor.rgb * colDiffuse.rgb;
-    
+
     finalColor = vec4(lighting, texColor.a * colDiffuse.a);
 }
 `
@@ -76,6 +112,7 @@ func main() {
 
 	lightingShader := rl.LoadShaderFromMemory(vsCode, fsCode)
 	defer rl.UnloadShader(lightingShader) // Limpa da memória ao fechar
+	isRingLoc := rl.GetShaderLocation(lightingShader, "isRing")
 
 	planets := []Planet{
 		{
@@ -415,7 +452,7 @@ func main() {
 			position := planetPositions[i]
 
 			if p.Name == "Saturno" {
-				drawSaturnRings(position, p.Radius, ringTexture, lightingShader)
+				drawSaturnRings(position, p.Radius, ringTexture, lightingShader, isRingLoc)
 			}
 
 			drawPlanet(p, position, p.Angle)

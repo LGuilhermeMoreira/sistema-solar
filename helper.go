@@ -210,19 +210,38 @@ func genRingMesh(innerRadius, outerRadius float32, segments int32) rl.Mesh {
 	return mesh
 }
 
-func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Texture2D, shader rl.Shader) {
+// func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Texture2D, shader rl.Shader) {
+// 	const segments = 128
+// 	innerRadius := planetRadius * 1.3
+// 	outerRadius := planetRadius * 2.4
+
+// 	mesh := genRingMesh(innerRadius, outerRadius, segments)
+// 	material := rl.LoadMaterialDefault() // sem material.Shader = shader
+// 	if ringTexture.ID > 0 {
+// 		rl.SetMaterialTexture(&material, rl.MapDiffuse, ringTexture)
+// 	}
+
+// 	transform := rl.MatrixTranslate(center.X, center.Y, center.Z)
+// 	rl.DrawMesh(mesh, material, transform)
+// }
+
+func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Texture2D, shader rl.Shader, isRingLoc int32) {
 	const segments = 128
 	innerRadius := planetRadius * 1.3
 	outerRadius := planetRadius * 2.4
 
 	mesh := genRingMesh(innerRadius, outerRadius, segments)
-	material := rl.LoadMaterialDefault() // sem material.Shader = shader
+	material := rl.LoadMaterialDefault()
+	material.Shader = shader
 	if ringTexture.ID > 0 {
 		rl.SetMaterialTexture(&material, rl.MapDiffuse, ringTexture)
 	}
 
 	transform := rl.MatrixTranslate(center.X, center.Y, center.Z)
+
+	rl.SetShaderValue(shader, isRingLoc, []float32{1.0}, rl.ShaderUniformFloat)
 	rl.DrawMesh(mesh, material, transform)
+	rl.SetShaderValue(shader, isRingLoc, []float32{0.0}, rl.ShaderUniformFloat) // reseta pros planetas
 }
 
 func drawStarBackground(stars []Star, camera OrbitCamera) {
