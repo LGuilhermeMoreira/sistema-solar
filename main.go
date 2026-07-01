@@ -141,6 +141,7 @@ func main() {
 		loadPlanetAssets(&planets[i], lightingShader)
 		planets[i].Angle = float32(i) * 0.8
 		for j := range planets[i].Moons {
+			loadMoonAssets(&planets[i].Moons[j], planets[i], lightingShader)
 			planets[i].Moons[j].Angle = float32(j) * 1.2
 		}
 	}
@@ -177,7 +178,7 @@ func main() {
 		y := float32(rl.GetRandomValue(0, screenH))
 		stars[i] = Star{
 			Position: rl.Vector2{X: x, Y: y},
-			Radius:   float32(rl.GetRandomValue(1, 3)) * 0.5,
+			Radius:   0.35,
 			Alpha:    uint8(rl.GetRandomValue(90, 230)),
 			Parallax: float32(rl.GetRandomValue(35, 100)) / 100,
 		}
@@ -414,7 +415,7 @@ func main() {
 			position := planetPositions[i]
 
 			if p.Name == "Saturno" {
-				drawSaturnRings(position, p.Radius, ringTexture)
+				drawSaturnRings(position, p.Radius, ringTexture, lightingShader)
 			}
 
 			drawPlanet(p, position, p.Angle)
@@ -424,7 +425,7 @@ func main() {
 				if showOrbits {
 					drawMoonOrbit(position, m.OrbitalDist, 22)
 				}
-				rl.DrawSphere(moonPos, m.Radius, m.Color)
+				drawMoon(m, moonPos, m.Angle)
 			}
 		}
 		if earthIndex >= 0 {

@@ -119,49 +119,110 @@ func drawMoonOrbit(center rl.Vector3, radius float32, alpha uint8) {
 	}
 }
 
-func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Texture2D) {
+func genRingMesh(innerRadius, outerRadius float32, segments int32) rl.Mesh {
+	front := make([]float32, segments*18)
+	frontUV := make([]float32, segments*12)
 
-	const segments = 64
+	for i := int32(0); i < segments; i++ {
+		angle := 2 * math.Pi * float64(i) / float64(segments)
+		nextAngle := 2 * math.Pi * float64(i+1) / float64(segments)
+		cos := float32(math.Cos(angle))
+		sin := float32(math.Sin(angle))
+		nextCos := float32(math.Cos(nextAngle))
+		nextSin := float32(math.Sin(nextAngle))
+
+		front[i*18] = innerRadius * cos
+		front[i*18+1] = 0
+		front[i*18+2] = innerRadius * sin
+		front[i*18+3] = outerRadius * cos
+		front[i*18+4] = 0
+		front[i*18+5] = outerRadius * sin
+		front[i*18+6] = innerRadius * nextCos
+		front[i*18+7] = 0
+		front[i*18+8] = innerRadius * nextSin
+		front[i*18+9] = innerRadius * nextCos
+		front[i*18+10] = 0
+		front[i*18+11] = innerRadius * nextSin
+		front[i*18+12] = outerRadius * cos
+		front[i*18+13] = 0
+		front[i*18+14] = outerRadius * sin
+		front[i*18+15] = outerRadius * nextCos
+		front[i*18+16] = 0
+		front[i*18+17] = outerRadius * nextSin
+
+		frontUV[i*12] = 0
+		frontUV[i*12+1] = float32(i) / float32(segments)
+		frontUV[i*12+2] = 1
+		frontUV[i*12+3] = float32(i) / float32(segments)
+		frontUV[i*12+4] = 0
+		frontUV[i*12+5] = float32(i+1) / float32(segments)
+		frontUV[i*12+6] = 0
+		frontUV[i*12+7] = float32(i+1) / float32(segments)
+		frontUV[i*12+8] = 1
+		frontUV[i*12+9] = float32(i) / float32(segments)
+		frontUV[i*12+10] = 1
+		frontUV[i*12+11] = float32(i+1) / float32(segments)
+	}
+
+	// Duplica com winding invertido -> visível de cima e de baixo
+	vertices := make([]float32, len(front)*2)
+	texCoords := make([]float32, len(frontUV)*2)
+	normals := make([]float32, len(front)*2)
+
+	copy(vertices, front)
+	copy(texCoords, frontUV)
+	for i := 0; i < len(front)/3; i++ {
+		normals[i*3+1] = 1
+	}
+
+	bv0 := len(front)
+	bt0 := len(frontUV)
+	for i := int32(0); i < segments; i++ {
+		fv, ft := i*18, i*12
+		bv, bt := bv0+int(i*18), bt0+int(i*12)
+
+		copy(vertices[bv:bv+3], front[fv:fv+3])
+		copy(vertices[bv+3:bv+6], front[fv+6:fv+9])
+		copy(vertices[bv+6:bv+9], front[fv+3:fv+6])
+		copy(vertices[bv+9:bv+12], front[fv+9:fv+12])
+		copy(vertices[bv+12:bv+15], front[fv+15:fv+18])
+		copy(vertices[bv+15:bv+18], front[fv+12:fv+15])
+
+		copy(texCoords[bt:bt+2], frontUV[ft:ft+2])
+		copy(texCoords[bt+2:bt+4], frontUV[ft+4:ft+6])
+		copy(texCoords[bt+4:bt+6], frontUV[ft+2:ft+4])
+		copy(texCoords[bt+6:bt+8], frontUV[ft+6:ft+8])
+		copy(texCoords[bt+8:bt+10], frontUV[ft+10:ft+12])
+		copy(texCoords[bt+10:bt+12], frontUV[ft+8:ft+10])
+	}
+	for i := len(front) / 3; i < len(vertices)/3; i++ {
+		normals[i*3+1] = -1
+	}
+
+	mesh := rl.Mesh{}
+	mesh.VertexCount = int32(len(vertices) / 3)
+	mesh.TriangleCount = int32(len(vertices) / 9)
+	mesh.Vertices = &vertices[0]
+	mesh.Texcoords = &texCoords[0]
+	mesh.Normals = &normals[0]
+
+	rl.UploadMesh(&mesh, false)
+	return mesh
+}
+
+func drawSaturnRings(center rl.Vector3, planetRadius float32, ringTexture rl.Texture2D, shader rl.Shader) {
+	const segments = 128
 	innerRadius := planetRadius * 1.3
 	outerRadius := planetRadius * 2.4
 
+	mesh := genRingMesh(innerRadius, outerRadius, segments)
+	material := rl.LoadMaterialDefault() // sem material.Shader = shader
 	if ringTexture.ID > 0 {
-
-		for i := int32(0); i < segments; i++ {
-			angle0 := 2 * math.Pi * float64(i) / segments
-			angle1 := 2 * math.Pi * float64(i+1) / segments
-
-			cos0 := float32(math.Cos(angle0))
-			sin0 := float32(math.Sin(angle0))
-			cos1 := float32(math.Cos(angle1))
-			sin1 := float32(math.Sin(angle1))
-
-			p0Inner := rl.Vector3{X: center.X + innerRadius*cos0, Y: center.Y, Z: center.Z + innerRadius*sin0}
-			p0Outer := rl.Vector3{X: center.X + outerRadius*cos0, Y: center.Y, Z: center.Z + outerRadius*sin0}
-			p1Inner := rl.Vector3{X: center.X + innerRadius*cos1, Y: center.Y, Z: center.Z + innerRadius*sin1}
-			p1Outer := rl.Vector3{X: center.X + outerRadius*cos1, Y: center.Y, Z: center.Z + outerRadius*sin1}
-
-			ringColor := rl.Color{R: 210, G: 190, B: 150, A: 160}
-			// Draw top face
-			rl.DrawTriangle3D(p0Inner, p0Outer, p1Outer, ringColor)
-			rl.DrawTriangle3D(p0Inner, p1Outer, p1Inner, ringColor)
-			// Draw bottom face
-			rl.DrawTriangle3D(p0Inner, p1Outer, p0Outer, ringColor)
-			rl.DrawTriangle3D(p0Inner, p1Inner, p1Outer, ringColor)
-		}
-	} else {
-
-		for step := int32(0); step < 8; step++ {
-			radius := planetRadius*1.45 + float32(step)*planetRadius*0.14
-			rl.DrawCircle3D(
-				center,
-				radius,
-				rl.Vector3{X: 1, Y: 0, Z: 0},
-				68,
-				rl.Color{R: 220, G: 200, B: 145, A: 115},
-			)
-		}
+		rl.SetMaterialTexture(&material, rl.MapDiffuse, ringTexture)
 	}
+
+	transform := rl.MatrixTranslate(center.X, center.Y, center.Z)
+	rl.DrawMesh(mesh, material, transform)
 }
 
 func drawStarBackground(stars []Star, camera OrbitCamera) {
@@ -186,9 +247,8 @@ func drawStarBackground(stars []Star, camera OrbitCamera) {
 			Y: s.Position.Y + offset.Y,
 		})
 
-		rl.DrawCircleV(
+		rl.DrawPixelV(
 			position,
-			s.Radius,
 			rl.Color{R: 255, G: 255, B: 255, A: s.Alpha},
 		)
 	}
@@ -358,4 +418,39 @@ func drawComet(comet *Comet) {
 	rl.DrawLine3D(comet.Position, tailEnd, rl.Color{R: 255, G: 175, B: 70, A: 210})
 	rl.DrawLine3D(comet.Position, tailWideA, rl.Color{R: 255, G: 220, B: 135, A: 135})
 	rl.DrawLine3D(comet.Position, tailWideB, rl.Color{R: 110, G: 185, B: 255, A: 120})
+}
+
+func loadMoonAssets(m *Moon, p Planet, shader rl.Shader) {
+	m.Mesh = rl.GenMeshSphere(1.0, 32, 32)
+	m.Material = rl.LoadMaterialDefault()
+	m.Material.Shader = shader
+
+	neutralColor := rl.Color{R: 232, G: 228, B: 214, A: 255}
+	m.Color = neutralColor
+	m.Material.GetMap(rl.MapDiffuse).Color = neutralColor
+
+	image := rl.GenImageColor(2, 2, neutralColor)
+	if image != nil {
+		m.Texture = rl.LoadTextureFromImage(image)
+		rl.UnloadImage(image)
+	}
+	if m.Texture.ID > 0 {
+		rl.SetMaterialTexture(&m.Material, rl.MapDiffuse, m.Texture)
+	}
+}
+
+func drawMoon(m Moon, position rl.Vector3, angle float32) {
+	mat := new(rl.Material)
+	*mat = m.Material
+	if m.Texture.ID > 0 {
+		rl.SetMaterialTexture(mat, rl.MapDiffuse, m.Texture)
+	}
+
+	transform := rl.MatrixScale(m.Radius, m.Radius, m.Radius)
+	rotation := rl.MatrixRotateY(0)
+	transform = rl.MatrixMultiply(transform, rotation)
+	translation := rl.MatrixTranslate(position.X, position.Y, position.Z)
+	transform = rl.MatrixMultiply(transform, translation)
+
+	rl.DrawMesh(m.Mesh, *mat, transform)
 }

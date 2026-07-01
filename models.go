@@ -23,6 +23,9 @@ type Moon struct {
 	Speed       float32
 	Color       rl.Color
 	Angle       float32
+	Texture     rl.Texture2D
+	Mesh        rl.Mesh
+	Material    rl.Material
 }
 
 type OrbitCamera struct {
@@ -60,3 +63,4 @@ var (
 	screenW int32 = 1280
 	screenH int32 = 720
 )
+
